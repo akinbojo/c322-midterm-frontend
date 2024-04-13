@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Take a Quiz</title>
+  <link rel="stylesheet" href="navbar.css">
+  <link rel="stylesheet" href="general.css">
+  <link rel="stylesheet" href="cards.css">
+  <style>
+    .image-container img {
+      width: 200px; /* Match the size from the working file */
+      display: block;
+      margin: 10px auto; /* Center the image */
+    }
+    .hide {
+      display: none;
+    }
+    .controls {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <ul class="topnav">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="add-question.html">Add questions</a></li>
+    <li><a class="active" href="take-a-quiz.html">Take a quiz</a></li>
+    <li class="right"><a href="#about">About</a></li>
+  </ul>
+
+  <!-- Quiz list container -->
+  <div id="quizList" class="cards"></div>
+
+  <!-- Quiz container -->
+  <div id="quizContainer" class="quiz hide">
+    <!-- Question text -->
+    <div id="questionText"></div>
+    <!-- Inside the quizContainer div -->
+  <div id="progressIndicator" class="controls"></div> 
+    <!-- Image container -->
+    <div class="image-container"></div>
+    <!-- Answer options will be injected here -->
+    <div id="answerOptions"></div>
+    <!-- Navigation buttons -->
+    <div class="controls">
+      <button id="prevButton" onclick="prevQuestion()" class="hide">Previous</button>
+      <button id="nextButton" onclick="nextQuestion()">Next</button>
+    </div>
+  </div>
+
+  <!-- Score container -->
+  <div id="scoreContainer" class="hide"></div>
+  <h3 id="completionMessage"></h3>
+
+  <script>
+    let userAnswers = [];
+    const backendUrl = "https://midterm-latest-by43.onrender.com";
+    let currentQuiz = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    async function loadQuizzes() {
+      const response = await fetch(`${backendUrl}/quizzes`);
+      const quizzes = await response.json();
+      const quizListElement = document.getElementById('quizList');
+      quizzes.forEach(quiz => {
+        const quizCard = document.createElement('div');
+        quizCard.className = "card";
+        quizCard.innerHTML = `<div class="container"><h4><b>${quiz.title}</b></h4></div>`;
+        quizCard.onclick = () => startQuiz(quiz.id);
+        quizListElement.appendChild(quizCard);
+      });
+    }
+
+    async function startQuiz(quizId) {
+      const quizListElement = document.getElementById('quizList');
+      quizListElement.classList.add('hide');
+      loadQuestions(quizId);
+    }
+
+    async function loadQuestions(quizId) {
+      const response = await fetch(`${backendUrl}/quizzes/${quizId}/questions`);
+      currentQuiz = await response.json();
+      currentQuestionIndex = 0;
+      displayQuestion(currentQuestionIndex);
+    }
+    function selectAnswer(questionIndex, selectedChoice) {
+      // Store the user's answer for the current question
+      userAnswers[questionIndex] = currentQuiz[questionIndex].choices[selectedChoice];
+    }
+
+    function displayQuestion(index) {
+      const question = currentQuiz[index];
+      const questionTextElement = document.getElementById('questionText');
+      const answerOptionsElement = document.getElementById('answerOptions');
+      const imageContainer = document.querySelector('.image-container');
+      const progressIndicator = document.getElementById('progressIndicator'); // Get the progress indicator element
+      
+      // Update the progress indicator with the current question number
+      progressIndicator.innerText = `Question ${index + 1} of ${currentQuiz.length}`;
+      
+      imageContainer.innerHTML = ''; // Clear previous image
+      const img = document.createElement('img');
+      img.src = `${backendUrl}/questions/${question.id}/image`;
+      imageContainer.appendChild(img);
+
+      questionTextElement.innerText = question.description;
+      answerOptionsElement.innerHTML = '';
+      question.choices.forEach((choice, i) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'option';
+        input.value = i;
+        input.onclick = () => selectAnswer(index, i); // Update the user's answer on click
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${choice}`));
+        answerOptionsElement.appendChild(label);
+        answerOptionsElement.appendChild(document.createElement('br'));
+      });
+
+      // Show quiz container and hide quiz list
+      document.getElementById('quizContainer').classList.remove('hide');
+      // Adjust button visibility
+      document.getElementById('prevButton').classList.toggle('hide', index === 0);
+      document.getElementById('nextButton').textContent = index === currentQuiz.length - 1 ? 'Finish' : 'Next';
+}
+
+
+    function prevQuestion() {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        displayQuestion(currentQuestionIndex);
+      }
+    }
+
+    function nextQuestion() {
+      const isLastQuestion = currentQuestionIndex === currentQuiz.length - 1;
+      if (!isLastQuestion) {
+        // Go to the next question if not the last
+        currentQuestionIndex++;
+        displayQuestion(currentQuestionIndex);
+      } else {
+        // If it is the last question, finish the quiz
+        finishQuiz();
+      }
+}
+
+
+    function calculateScore() {
+      score = 0; // Reset score
+
+      // Iterate over the user's answers and compare them with the correct answers
+      userAnswers.forEach((userAnswer, index) => {
+        const correctAnswer = currentQuiz[index].answer;
+        if (userAnswer === correctAnswer) {
+          score++;
+        }
+        const completionMessage = document.getElementById('completionMessage');
+        completionMessage.innerText = `You completed the quiz! You scored ${score} out of ${currentQuiz.length}.`;
+      });
+
+      // Hide quiz container and show score container
+      document.getElementById('quizContainer').classList.add('hide');
+      const scoreContainer = document.getElementById('scoreContainer');
+      scoreContainer.classList.remove('hide');
+      scoreContainer.innerText = `Your score: ${score}`;
+
+      // Bring back the navigation bar
+      const topNav = document.querySelector('.topnav');
+      topNav.classList.remove('hide');
+    }
+
+    // This function would be invoked when the "Finish" button is clicked
+    function finishQuiz() {
+      calculateScore();
+      // Make the score container visible
+      const scoreContainer = document.getElementById('scoreContainer');
+      scoreContainer.classList.remove('hide');
+      // Hide the quiz container
+      const quizContainer = document.getElementById('quizContainer');
+      quizContainer.classList.add('hide');
+      // Show the top navigation
+      const topNav = document.querySelector('.topnav');
+      topNav.classList.remove('hide');
+}
+
+
+
+    function showScore() {
+      // Make the score container visible and update the score text
+      const scoreContainer = document.getElementById('scoreContainer');
+      scoreContainer.classList.remove('hide');
+      scoreContainer.innerText = `Your score: ${score}`;
+
+      // Hide the quiz container and show the top navigation
+      const quizContainer = document.getElementById('quizContainer');
+      quizContainer.classList.add('hide');
+      const topNav = document.querySelector('.topnav');
+      topNav.classList.remove('hide');
+
+      // Optionally, you might want to reset the current quiz or navigate the user elsewhere
+    }
+
+    window.onload = () => {
+      loadQuizzes();
+    };
+  </script>
+</body>
+</html>
+     

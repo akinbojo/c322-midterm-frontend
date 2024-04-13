@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create a Quiz</title>
+  <link rel="stylesheet" href="navbar.css">
+  <link rel="stylesheet" href="general.css">
+  <link rel="stylesheet" href="cards.css">
+</head>
+<body>
+  <ul class="topnav">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="add-question.html">Add questions</a></li>
+    <li><a class="active" href="make-a-quiz.html">Create a quiz</a></li>
+    <li><a href="take-a-quiz.html">Take a quiz</a></li>
+    <li class="right"><a href="#about">About</a></li>
+  </ul>
+
+  <div id="createQuizContainer">
+    <div id="questionBank" class="cards"></div>
+    <div id="quizPreview" class="quiz">
+      <label for="quizTitle">Quiz Title:</label>
+      <input type="text" id="quizTitle" placeholder="Enter quiz title here" required />
+      <button id="saveQuizBtn">Save your changes</button>
+      <button id="saveAndNewQuizBtn">Save this quiz and start a new one</button>
+    </div>
+  </div>
+
+  <script>
+    const backendUrl = "https://midterm-latest-by43.onrender.com";
+
+    async function loadQuestions() {
+      const response = await fetch(`${backendUrl}/questions`);
+      const questions = await response.json();
+
+      const questionBank = document.getElementById('questionBank');
+      questions.forEach(question => {
+        const questionCard = document.createElement('div');
+        questionCard.className = "card";
+        questionCard.innerHTML = `
+          <img src="${backendUrl}/questions/${question.id}/image" alt="question" style="width:100%">
+          <div class="container">
+            <h4><b>${question.id}</b></h4> 
+            <p>${question.description}</p>
+          </div>
+        `;
+        questionCard.onclick = () => addQuestionToQuiz(question);
+        questionBank.appendChild(questionCard);
+      });
+    }
+
+    function addQuestionToQuiz(question) {
+      const quizPreview = document.getElementById('quizPreview');
+      const questionElement = document.createElement('div');
+      questionElement.id = `quiz-question-${question.id}`;
+      questionElement.innerHTML = `
+        <p>${question.description}</p>
+        <img src="${backendUrl}/questions/${question.id}/image" alt="Question Image" style="width:100px;">
+      `;
+      questionElement.onclick = () => removeQuestionFromQuiz(questionElement);
+      quizPreview.appendChild(questionElement);
+    }
+
+    function removeQuestionFromQuiz(questionElement) {
+      questionElement.remove();
+    }
+
+    async function saveQuiz() {
+      const quizTitle = document.getElementById('quizTitle').value;
+      const questionElements = document.querySelectorAll('#quizPreview > div');
+      const questionIds = Array.from(questionElements).map(el => el.id.replace('quiz-question-', ''));
+      const quiz = { title: quizTitle, questionIds: questionIds };
+
+      const response = await fetch(`${backendUrl}/quizzes`, {
+        method: 'POST', // Use POST for new quiz creation
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quiz)
+      });
+
+      if (response.ok) {
+        const newQuiz = await response.json();
+        console.log('Quiz saved with ID:', newQuiz.id);
+        // Implement additional logic if needed, e.g., displaying a success message
+      } else {
+        console.error('Failed to save the quiz');
+        // Implement error handling
+      }
+    }
+
+    async function startNewQuiz() {
+      await saveQuiz();
+      location.reload(); // Refresh the page to start creating a new quiz
+    }
+
+    document.getElementById('saveQuizBtn').addEventListener('click', saveQuiz);
+    document.getElementById('saveAndNewQuizBtn').addEventListener('click', startNewQuiz);
+
+    window.addEventListener('load', loadQuestions);
+  </script>
+</body>
+</html>
